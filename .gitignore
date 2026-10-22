@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# 构建产物（build.sh 可重新生成）
+*.app/
+NTFSHelper
+*.dmg
+build/
+
+# 第三方参考源码：仅调研用，非本项目代码
+fskit-ref/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*~

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NTFS 读写助手 — 让 Mac 直接读写 NTFS 磁盘 | 杨杨</title>
+<meta name="description" content="免费开源的 macOS NTFS 读写工具，ntfs-3g + FUSE-T 双引擎全内置，拖入 Applications 即可使用，插入 NTFS 磁盘自动转为读写模式。">
+<meta name="keywords" content="Mac NTFS,NTFS 读写,macOS NTFS 磁盘,免费 NTFS 工具,ntfs-3g,FUSE-T">
+<style>
+:root{
+  --bg:#05070D; --panel:#070B12; --card:rgba(255,255,255,.04);
+  --hair:rgba(255,255,255,.09); --hair2:rgba(255,255,255,.14);
+  --txt:#FFFFFF; --sub:#9AA6B5; --dim:#5C6875; --dimmer:#8B97A6;
+  --acc:#2EA7FF; --accInk:#05070D;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1200px;margin:0 auto;padding:0 40px}
+
+/* ---------- Nav ---------- */
+nav{position:sticky;top:0;z-index:99;background:rgba(5,7,13,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--hair)}
+.navin{max-width:1200px;margin:0 auto;padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
+.brand .mark{width:26px;height:26px;border-radius:7px;background:var(--acc);display:grid;place-items:center;color:var(--accInk);font-weight:800;font-size:14px}
+.navlinks{display:flex;gap:36px}
+.navlinks a{font-size:14px;color:var(--sub);transition:color .2s}
+.navlinks a:hover{color:#fff}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;font-weight:700;cursor:pointer;border:none;transition:transform .15s,box-shadow .15s,background .15s}
+.btn-acc{background:var(--acc);color:var(--accInk)}
+.btn-acc:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(46,167,255,.35)}
+.btn-ghost{background:rgba(255,255,255,.05);color:#fff;border:1px solid var(--hair2)}
+.btn-ghost:hover{background:rgba(255,255,255,.09)}
+nav .btn{padding:8px 18px;font-size:14px}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;padding:110px 40px 90px;text-align:center;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% -8%,rgba(46,167,255,.16),transparent 65%);pointer-events:none}
+.hero::after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(ellipse 62% 60% at 50% 30%,#000 30%,transparent 78%);mask-image:radial-gradient(ellipse 62% 60% at 50% 30%,#000 30%,transparent 78%);pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:100px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);font-size:13px;color:var(--sub)}
+.badge .dot{width:6px;height:6px;border-radius:3px;background:#13DDC4;box-shadow:0 0 8px #13DDC4}
+h1{font-size:clamp(40px,6.4vw,76px);font-weight:800;letter-spacing:-.02em;line-height:1.12;margin:26px 0 22px}
+.hero .sub{font-size:20px;color:var(--sub);max-width:760px;margin:0 auto}
+.ctarow{display:flex;gap:16px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+.ctarow .btn{padding:16px 36px;font-size:17px}
+.trust{margin-top:18px;font-size:14px;color:var(--dim)}
+
+/* ---------- Menu mockup ---------- */
+.mock{width:min(760px,92%);margin:64px auto 0;background:#0A1018;border:1px solid rgba(255,255,255,.1);border-radius:20px;box-shadow:0 24px 64px rgba(46,167,255,.18),0 8px 32px rgba(0,0,0,.5);overflow:hidden;text-align:left}
+.menubar{height:38px;background:#111823;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:12px;color:#C6CFDA}
+.menubar .ic{display:flex;gap:14px;align-items:center}
+.menubar .ic i{display:block;width:14px;height:10px;border-radius:2px;background:#3A4656}
+.menubar .ic i.disk{width:16px;height:14px;border-radius:4px;background:var(--acc)}
+.desktop{position:relative;height:340px;background:#0D1320}
+.dropdown{position:absolute;top:10px;right:52px;width:272px;background:#161D28;border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.5);padding:6px 0;font-size:13px}
+.dropdown .hot{background:var(--acc);border-radius:8px;margin:0 6px;padding:10px 12px}
+.dropdown .hot b{display:block;color:var(--accInk);font-size:13px}
+.dropdown .hot span{color:#06304F;font-size:12px}
+.dropdown .mi{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;color:#E7EDF4}
+.dropdown .mi .ck{color:var(--acc);font-weight:700}
+.dropdown hr{border:none;border-top:1px solid var(--hair);margin:4px 0}
+.dock{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;padding:8px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;backdrop-filter:blur(20px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.dock i{display:block;width:36px;height:36px;border-radius:9px}
+.dock i.hl{outline:1.5px solid rgba(255,255,255,.25)}
+
+/* ---------- Sections ---------- */
+section{padding:80px 40px}
+.sec-head{text-align:center;margin-bottom:44px}
+.kicker{font-size:13px;letter-spacing:4px;color:var(--acc);font-weight:500}
+.sec-head h2{font-size:clamp(28px,4vw,40px);font-weight:700;margin-top:12px;letter-spacing:-.01em}
+
+.dlcard{display:flex;align-items:center;justify-content:space-between;gap:24px;background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:28px 36px;flex-wrap:wrap}
+.dlcard .v{font-size:20px;font-weight:700}
+.dlcard .m{font-size:14px;color:#7B8896;margin-top:6px}
+.dlcard .right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.dlcard .btn{padding:14px 32px;font-size:16px}
+.sha{font-size:12px;color:var(--dim)}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:28px 26px;transition:background .2s,transform .2s}
+.card:hover{background:rgba(255,255,255,.065);transform:translateY(-2px)}
+.card .ic{width:44px;height:44px;border-radius:12px;background:rgba(46,167,255,.08);display:grid;place-items:center;margin-bottom:16px}
+.card .ic svg{width:22px;height:22px;stroke:var(--acc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card h3{font-size:19px;font-weight:700;margin-bottom:8px}
+.card p{font-size:14px;color:var(--dimmer)}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step .num{font-size:30px;font-weight:800;color:var(--acc);margin-bottom:10px}
+.step h3{font-size:19px;font-weight:700;margin-bottom:8px}
+.step p{font-size:14px;color:var(--dimmer)}
+
+.faq{max-width:860px;margin:0 auto;background:rgba(255,255,255,.02);border:1px solid var(--hair);border-radius:16px;padding:8px 28px}
+details{border-bottom:1px solid var(--hair);padding:6px 0}
+details:last-child{border-bottom:none}
+summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:18px 0;font-size:17px;font-weight:600}
+summary::-webkit-details-marker{display:none}
+summary .pm{color:var(--acc);font-size:20px;font-weight:400;transition:transform .2s}
+details[open] .pm{transform:rotate(45deg)}
+details p{font-size:14px;color:var(--dimmer);padding:0 0 18px;line-height:1.75}
+
+.final{position:relative;text-align:center;padding:110px 40px;overflow:hidden}
+.final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 55% 65% at 50% 50%,rgba(46,167,255,.1),transparent 70%);pointer-events:none}
+.final>*{position:relative}
+.final .bigicon{width:88px;height:88px;border-radius:22px;background:#0F1722;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;margin:0 auto 26px;font-size:42px;font-weight:800;color:var(--acc)}
+.final h2{font-size:clamp(34px,5vw,56px);font-weight:800;letter-spacing:-.02em}
+.final .s{font-size:18px;color:var(--dimmer);margin:18px 0 34px}
+.final .btn{padding:18px 44px;font-size:17px;border-radius:14px}
+
+footer{background:#04060B;border-top:1px solid var(--hair);padding:36px 0 44px}
+.frow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.fbrand{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:14px;font-weight:600}
+.fbrand i{display:block;width:20px;height:20px;border-radius:6px;background:var(--acc)}
+.flink{display:flex;gap:28px;font-size:13px;color:var(--dim)}
+.fmeta{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--dim)}
+.fmeta a{color:var(--acc)}
+
+@media(max-width:900px){
+  .navlinks{display:none}
+  .grid,.steps{grid-template-columns:1fr}
+  .dropdown{right:16px}
+  h1{font-size:44px}
+  .dlcard{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="navin">
+    <a class="brand" href="#"><span class="mark">N</span>NTFS 读写助手</a>
+    <div class="navlinks">
+      <a href="#features">功能</a>
+      <a href="#guide">安装教程</a>
+      <a href="#faq">常见问题</a>
+      <a href="https://杨杨.xyz" target="_blank">作者博客</a>
+    </div>
+    <a class="btn btn-acc" href="#download">免费下载</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <span class="badge"><span class="dot"></span>完全免费 · 开源引擎 · 拖入即用</span>
+  <h1>让 Mac 直接读写 NTFS 磁盘</h1>
+  <p class="sub">插入 NTFS 移动硬盘或 U 盘，自动转为读写模式。ntfs-3g 与 FUSE-T 双引擎全部内置，拖进「应用程序」文件夹即完成安装，不装任何驱动、不碰系统设置。</p>
+  <div class="ctarow">
+    <a class="btn btn-acc" href="#download"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#05070D" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>免费下载 DMG</a>
+    <a class="btn btn-ghost" href="#guide">三步安装教程</a>
+  </div>
+  <p class="trust">支持 Apple Silicon (M 系列) · macOS 13 及以上 · 安装包仅 0.9 MB</p>
+
+  <div class="mock">
+    <div class="menubar">
+      <span>周五 22:31</span>
+      <span class="ic"><i></i><i></i><i class="disk"></i></span>
+    </div>
+    <div class="desktop">
+      <div class="dropdown">
+        <div class="hot"><b>希捷移动硬盘 — 当前只读</b><span>点击转为读写模式</span></div>
+        <div class="mi">插入磁盘时自动转为读写<span class="ck">✓</span></div>
+        <div class="mi">登录时自动启动<span class="ck">✓</span></div>
+        <hr>
+        <div class="mi">退出 NTFS 读写助手…</div>
+      </div>
+      <div class="dock">
+        <i style="background:#3E5C8A"></i><i style="background:#8A5C3E"></i><i style="background:#4E8A5C"></i><i style="background:#7A4E8A"></i><i style="background:#C9A227"></i><i class="hl" style="background:var(--acc)"></i><i style="background:#333B47"></i>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="download">
+  <div class="wrap">
+    <div class="dlcard">
+      <div>
+        <div class="v">NTFS 读写助手 v1.0.0</div>
+        <div class="m">DMG 安装镜像 · 0.9 MB · 引擎与运行库全内置 · 无需额外安装组件</div>
+      </div>
+      <div class="right">
+        <a class="btn btn-acc" href="/assets/downloads/NTFSReadWriteHelper-1.0.0.dmg" download>下载 DMG</a>
+        <span class="sha">下载后拖入「应用程序」文件夹即完成安装</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">为什么选它</div>
+      <h2>一个菜单栏图标，搞定所有 NTFS 烦恼</h2>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8"/></svg></div><h3>一键转为读写</h3><p>插入 NTFS 磁盘自动识别，菜单里点一下即从「只读」转为完整读写模式，全程约 3 秒。</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="#2EA7FF" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="#2EA7FF" stroke="none"/><circle cx="19" cy="12" r="1.8" fill="#2EA7FF" stroke="none"/></svg></div><h3>菜单栏常驻</h3><p>NTFS 磁盘状态一目了然，挂载、弹出、自动模式、开机自启都收进一个菜单，不打扰不占地。</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>安全透明</h3><p>只负责挂载流程，不读取、不改动磁盘数据；每一步操作都有日志可查，开源引擎代码可审计。</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v9"/></svg></div><h3>引擎全内置</h3><p>ntfs-3g 读写引擎与 FUSE-T 运行库全部打包进 App，不需要 Homebrew，不装内核扩展。</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M9 13.5l2 2 4-4"/></svg></div><h3>原生 Finder 体验</h3><p>挂载后 Finder 里直接可写：中文名、长文件名、单个 4GB 以上大文件都支持，拷片追剧无压力。</p></div>
+      <div class="card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div><h3>插入即自动挂载</h3><p>开启自动模式后，插上磁盘输一次密码即自动完成读写挂载，之后每次都无感直达。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="guide" style="background:var(--panel)">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">安装教程</div>
+      <h2>三步开始，全程不超过一分钟</h2>
+    </div>
+    <div class="steps">
+      <div class="card step"><div class="num">01</div><h3>下载并拖入「应用程序」</h3><p>打开 DMG 镜像，把「NTFS 读写助手」拖进 Applications 文件夹，安装就完成了。</p></div>
+      <div class="card step"><div class="num">02</div><h3>插入磁盘，输一次密码</h3><p>插上 NTFS 硬盘，点菜单栏硬盘图标选「转为读写」，输入一次管理员密码完成授权。</p></div>
+      <div class="card step"><div class="num">03</div><h3>开始读写</h3><p>Finder 里直接拖拽文件。开启「插入自动转为读写」，以后插盘即读写，无需重复操作。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">常见问题</div>
+      <h2>你可能想问</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>为什么挂载时需要输入管理员密码？<span class="pm">＋</span></summary>
+        <p>以读写方式重新挂载磁盘卷需要系统级授权，这是 macOS 的安全机制，与 Paragon 等商业软件一致。密码只用于本次挂载，不会被保存或上传。</p>
+      </details>
+      <details>
+        <summary>支持哪些设备？会动到我的数据吗？<span class="pm">＋</span></summary>
+        <p>支持 NTFS 格式的 U 盘、移动硬盘与硬盘盒（APFS / FAT32 / exFAT 由 macOS 原生处理，无需本工具）。工具只负责挂载流程，不读取、不改动磁盘里的任何数据。</p>
+      </details>
+      <details>
+        <summary>首次访问磁盘提示「不允许访问」怎么办？<span class="pm">＋</span></summary>
+        <p>打开 系统设置 → 隐私与安全性 → 文件和文件夹 → 网络卷，为相关访问打勾即可。这是挂载通道的一次性授权，之后不会再弹。</p>
+      </details>
+      <details>
+        <summary>中文文件名会乱码吗？和 Windows 互通吗？<span class="pm">＋</span></summary>
+        <p>不会。引擎原生支持 Unicode，中文、日文文件名与 Windows 下的 NTFS 完全互通，在 Mac 上写的内容插回 PC 照样正常打开。</p>
+      </details>
+      <details>
+        <summary>真的完全免费？<span class="pm">＋</span></summary>
+        <p>是。本工具个人使用完全免费，底层 ntfs-3g 与 FUSE-T 均为开源项目。仍建议重要数据定期备份——好习惯比任何软件都可靠。</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="bigicon">N</div>
+  <h2>立刻就能让那块硬盘干活</h2>
+  <p class="s">0.9 MB，一分钟装好，NTFS 磁盘从此在 Mac 上畅通无阻。</p>
+  <a class="btn btn-acc" href="/assets/downloads/NTFSReadWriteHelper-1.0.0.dmg" download>免费下载 NTFS 读写助手</a>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="frow">
+      <div class="fbrand"><i></i>NTFS 读写助手</div>
+      <div class="flink"><a href="#features">功能</a><a href="#guide">安装教程</a><a href="#faq">常见问题</a></div>
+    </div>
+    <div style="height:1px;background:var(--hair);margin:22px 0"></div>
+    <div class="fmeta">
+      <span>© 2026 杨杨 · 用爱发电，感谢开源项目 ntfs-3g 与 FUSE-T</span>
+      <a href="https://杨杨.xyz" target="_blank">作者博客：杨杨.xyz</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
